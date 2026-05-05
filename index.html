@@ -9,37 +9,48 @@
     html, body { margin:0; padding:0; height:100%; overflow:hidden; touch-action: none; background: #000; }
     #game-wrap { width:100%; height:100%; position:relative; overflow: hidden; background: radial-gradient(circle at center, #1a1a4e 0%, #050515 100%); }
     
-    /* 캐릭터 & 장애물 */
-    #player { position:absolute; bottom:160px; width:65px; height:65px; z-index:10; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3)); }
+    #player { position:absolute; bottom:160px; width:65px; height:65px; z-index:10; }
     #player img { width: 100%; height: 100%; object-fit: contain; }
-    .falling-obj { position:absolute; z-index:5; border-radius: 12px; transform: translateZ(0); }
     
-    /* 🔥 고퀄리티 보스 아우라 공격 */
+    .falling-obj { position:absolute; z-index:5; border-radius: 12px; }
+    
+    /* 보스 아우라 공격 */
     .boss-attack { 
         position:absolute; width:25px; height:25px; border-radius:50%; 
-        background: radial-gradient(circle, #fff 10%, #ffeb3b 30%, #ff5722 60%, transparent 100%);
-        z-index:6; 
-        box-shadow: 0 0 20px #ff5722, 0 0 40px #ff2200;
-        animation: aura-pulse 0.5s infinite alternate;
+        background: radial-gradient(circle, #fff, #ffeb3b, #ff5722, transparent);
+        z-index:6; box-shadow: 0 0 25px #ff5722;
+        animation: aura-pulse 0.4s infinite alternate;
     }
-    @keyframes aura-pulse {
-        from { transform: scale(1); filter: brightness(1); }
-        to { transform: scale(1.2); filter: brightness(1.5); }
-    }
-    
-    /* UI 레이아웃 */
-    #hud { position:absolute; top:15px; left:15px; right:15px; display:flex; justify-content:space-between; z-index:20; font-family:'Black Han Sans',sans-serif; color:#fff; font-size:22px; pointer-events: none; }
-    
-    /* 조이스틱 */
-    #controls { position:absolute; bottom:0; left:0; width:100%; height:140px; background: rgba(0,0,0,0.9); display:flex; justify-content:space-around; align-items:center; z-index:50; border-top: 2px solid #333; }
-    .btn-arrow { width: 45%; height: 85%; font-size: 50px; color: white; background: #222; border: 1px solid #444; border-radius: 20px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
-    .btn-arrow:active { background: #444; }
+    @keyframes aura-pulse { from { transform: scale(1); } to { transform: scale(1.3); } }
 
-    /* 오버레이 */
-    #overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); }
-    #start-btn { font-family:'Black Han Sans',sans-serif; font-size:26px; padding:15px 60px; background:linear-gradient(135deg, #ff9f43, #ff6b6b); color:#fff; border-radius:50px; border:none; cursor:pointer; box-shadow:0 10px 20px rgba(255,107,107,0.4); }
+    /* 보스 경고 텍스트 */
+    #boss-warning { 
+        position:absolute; top:20%; left:50%; transform:translateX(-50%);
+        color: #ff0000; font-family: 'Black Han Sans'; font-size: 40px;
+        text-shadow: 0 0 20px #f00; display:none; z-index:100;
+    }
+
+    /* 폭발 VFX */
+    .explosion {
+        position:absolute; pointer-events:none; z-index:20;
+        background: radial-gradient(circle, #fff, #ff9f43, #ff6b6b, transparent);
+        border-radius: 50%; animation: explode 0.5s ease-out forwards;
+    }
+    @keyframes explode {
+        0% { transform: scale(0); opacity: 1; filter: brightness(2); }
+        100% { transform: scale(4); opacity: 0; filter: brightness(1); }
+    }
     
-    .star { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; opacity:0.3; }
+    /* UI & 조이스틱 */
+    #hud { position:absolute; top:15px; left:15px; right:15px; z-index:20; font-family:'Black Han Sans',sans-serif; color:#fff; font-size:18px; pointer-events: none; }
+    #controls { position:absolute; bottom:0; left:0; width:100%; height:140px; background: rgba(0,0,0,0.9); display:flex; justify-content:space-around; align-items:center; z-index:50; border-top: 2px solid #333; }
+    .btn-arrow { width: 45%; height: 85%; font-size: 50px; color: white; background: #222; border-radius: 20px; display: flex; align-items: center; justify-content: center; user-select: none; }
+    
+    /* 랭킹 보드 */
+    #ranking-board { margin-top: 15px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; width: 200px; font-size: 14px; text-align: center; }
+
+    #overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); }
+    #start-btn { font-family:'Black Han Sans',sans-serif; font-size:26px; padding:15px 60px; background:linear-gradient(135deg, #ff9f43, #ff6b6b); color:#fff; border-radius:50px; border:none; cursor:pointer; }
   </style>
  </head>
  <body>
@@ -48,14 +59,15 @@
    <audio id="bg-music" loop></audio>
    
    <div id="hud">
-    <div id="score-display">점수: 0</div>
-    <div id="best-display" style="color: #ffdf00;">최고: 0</div>
+    <div style="display:flex; justify-content:space-between;">
+        <span id="score-display">점수: 0</span>
+        <span id="boss-hp-display" style="color:#ff4444; display:none;">보스 HP: 3</span>
+    </div>
    </div>
+
+   <div id="boss-warning">BOSS APPEARED!</div>
    
-   <div id="player">
-    <img src="https://i.ibb.co/hxRSqYCV/25933-removebg-preview.png" alt="강아지">
-   </div>
-   
+   <div id="player"><img src="https://i.ibb.co/hxRSqYCV/25933-removebg-preview.png"></div>
    <div id="falling-container"></div>
 
    <div id="controls">
@@ -64,192 +76,209 @@
    </div>
 
    <div id="overlay">
-    <h1 style="font-family:'Black Han Sans',sans-serif; font-size:55px; color:#ffdf00; margin-bottom:10px; text-shadow: 0 0 20px rgba(255,223,0,0.5);">준서 피하기</h1>
-    <p id="sub-text" style="color:#aaa; margin-bottom:30px; font-size:18px;">최고의 피지컬을 보여주세요!</p>
-    <p id="final-score" style="color:#fff; font-size:32px; margin-bottom:25px; display:none; font-family:'Black Han Sans';"></p>
+    <h1 style="font-family:'Black Han Sans',sans-serif; font-size:50px; color:#ffdf00;">준서 피하기</h1>
+    <div id="ranking-board">
+        <div style="margin-bottom:5px; border-bottom:1px solid #555;">🏆 실시간 랭킹</div>
+        <div id="rank-list"></div>
+    </div>
+    <p id="final-score" style="color:#fff; font-size:24px; margin:15px 0; display:none;"></p>
     <button id="start-btn" onclick="startGame()">도전하기</button>
    </div>
   </div>
 
   <script>
-    // 배경음악 설정
     const bgMusic = document.getElementById('bg-music');
     bgMusic.src = 'https://media.vocaroo.com/mp3/11IFKOGShZvj';
 
-    // 별 배경 생성
-    const starsEl = document.getElementById('stars');
-    for(let i=0; i<50; i++){
-      const s = document.createElement('div'); s.className = 'star';
-      s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
-      starsEl.appendChild(s);
-    }
-
-    // 데이터 저장 로직 (Local Storage)
-    let best = localStorage.getItem('junseo_best_score') || 0;
-    document.getElementById('best-display').textContent = '최고: ' + best;
-
-    let gameRunning = false, score = 0, playerX = 50;
-    let animId = null, spawnTimer = null, difficulty = 1;
-    let fallingObjects = [], bossAttacks = [], keys = {};
+    let gameRunning = false, score = 0, playerX = 50, isBossPhase = false;
+    let animId = null, spawnTimer = null, keys = {};
+    let fallingObjects = [], bossAttacks = [], bossEntity = null;
 
     const player = document.getElementById('player');
     const container = document.getElementById('falling-container');
     const overlay = document.getElementById('overlay');
     const scoreDisp = document.getElementById('score-display');
+    const bossWarning = document.getElementById('boss-warning');
+    const bossHpDisp = document.getElementById('boss-hp-display');
+
+    // 랭킹 시스템
+    function updateRanking() {
+        let ranks = JSON.parse(localStorage.getItem('junseo_ranks') || "[]");
+        ranks.sort((a, b) => b - a);
+        const rankList = document.getElementById('rank-list');
+        rankList.innerHTML = ranks.slice(0, 5).map((s, i) => `<div>${i+1}위: ${s}점</div>`).join('') || "기록 없음";
+    }
+    updateRanking();
+
+    function createExplosion(x, y) {
+        const exp = document.createElement('div');
+        exp.className = 'explosion';
+        exp.style.left = x + 'px'; exp.style.top = y + 'px';
+        exp.style.width = '50px'; exp.style.height = '50px';
+        container.appendChild(exp);
+        setTimeout(() => exp.remove(), 500);
+    }
 
     function setPlayerPos() {
-      const wrapW = document.getElementById('game-wrap').clientWidth;
-      playerX = Math.max(0, Math.min(playerX, wrapW - 65));
-      player.style.left = playerX + 'px';
+        const wrapW = document.getElementById('game-wrap').clientWidth;
+        playerX = Math.max(0, Math.min(playerX, wrapW - 65));
+        player.style.left = playerX + 'px';
     }
 
     function startGame() {
-      score = 0; difficulty = 1;
-      playerX = document.getElementById('game-wrap').clientWidth / 2 - 32;
-      setPlayerPos();
-      
-      container.innerHTML = '';
-      fallingObjects = [];
-      bossAttacks = [];
-      scoreDisp.textContent = '점수: 0';
-      overlay.style.display = 'none';
-      
-      // 음악 재생
-      bgMusic.currentTime = 0;
-      bgMusic.play().catch(() => console.log("음악 자동재생 차단됨"));
-      
-      gameRunning = true;
-      if(spawnTimer) clearInterval(spawnTimer);
-      spawnTimer = setInterval(spawnObj, 700);
-      gameLoop();
+        score = 0; isBossPhase = false; bossEntity = null;
+        playerX = document.getElementById('game-wrap').clientWidth / 2 - 32;
+        container.innerHTML = ''; fallingObjects = []; bossAttacks = [];
+        scoreDisp.textContent = '점수: 0'; overlay.style.display = 'none';
+        bossHpDisp.style.display = 'none';
+        bgMusic.play().catch(() => {});
+        gameRunning = true;
+        startSpawning();
+        gameLoop();
     }
 
-    function spawnObj() {
-      if(!gameRunning) return;
-      const wrapW = document.getElementById('game-wrap').clientWidth;
-      const el = document.createElement('img');
-      el.className = 'falling-obj';
-      
-      const isBoss = Math.random() < 0.2;
-      // 이미지 캐싱 고려하여 최적화된 링크 사용
-      el.src = isBoss ? 'https://i.ibb.co/216LCs1z/Screenshot-. -Kakao-Talk.jpg' : 'https://i.ibb.co/23J5Sb4v/Screenshot-. -Discord.jpg';
-      const size = isBoss ? 110 : 75;
-      el.style.width = size + 'px'; el.style.height = size + 'px';
-      
-      const x = Math.random() * (wrapW - size);
-      el.style.left = x + 'px'; el.style.top = '-120px';
-      container.appendChild(el);
-      
-      fallingObjects.push({ 
-        el, x, y: -120, size, 
-        speed: (4 + Math.random()*2.5) * (1 + difficulty*0.05), 
-        isBoss, 
-        atkTimer: 0 
-      });
+    function startSpawning() {
+        if(spawnTimer) clearInterval(spawnTimer);
+        spawnTimer = setInterval(() => {
+            if(!gameRunning || isBossPhase) return;
+            spawnJunseo();
+        }, 800);
     }
 
-    function spawnAttack(x, y) {
-      const atkEl = document.createElement('div');
-      atkEl.className = 'boss-attack';
-      atkEl.style.left = x + 'px';
-      atkEl.style.top = y + 'px';
-      container.appendChild(atkEl);
-      bossAttacks.push({ el: atkEl, x, y, speed: 7.5 });
+    function spawnJunseo() {
+        const wrapW = document.getElementById('game-wrap').clientWidth;
+        const el = document.createElement('img');
+        el.className = 'falling-obj';
+        el.src = 'https://i.ibb.co/23J5Sb4v/Screenshot-. -Discord.jpg';
+        el.style.width = '75px'; el.style.height = '75px';
+        const x = Math.random() * (wrapW - 75);
+        el.style.left = x + 'px'; el.style.top = '-80px';
+        container.appendChild(el);
+        fallingObjects.push({ el, x, y: -80, size: 75, speed: 4 + Math.random()*3 });
+    }
+
+    function spawnBoss() {
+        isBossPhase = true;
+        bossWarning.style.display = 'block';
+        setTimeout(() => bossWarning.style.display = 'none', 2000);
+
+        const wrapW = document.getElementById('game-wrap').clientWidth;
+        const el = document.createElement('img');
+        el.className = 'falling-obj';
+        el.src = 'https://i.ibb.co/216LCs1z/Screenshot-. -Kakao-Talk.jpg';
+        el.style.width = '140px'; el.style.height = '140px';
+        el.style.boxShadow = "0 0 30px #f00";
+        const x = wrapW / 2 - 70;
+        el.style.left = x + 'px'; el.style.top = '-150px';
+        container.appendChild(el);
+        
+        bossEntity = { el, x, y: -150, size: 140, hp: 3, speed: 1.5, atkTimer: 0 };
+        bossHpDisp.style.display = 'block';
+        bossHpDisp.textContent = `보스 HP: ${bossEntity.hp}`;
     }
 
     function gameLoop() {
-      if(!gameRunning) return;
+        if(!gameRunning) return;
 
-      const moveSpeed = 10;
-      if(keys['ArrowLeft'] || keys['l']) playerX -= moveSpeed;
-      if(keys['ArrowRight'] || keys['r']) playerX += moveSpeed;
-      setPlayerPos();
+        if(keys['l']) playerX -= 10;
+        if(keys['r']) playerX += 10;
+        setPlayerPos();
 
-      const pRect = { x: playerX + 18, y: window.innerHeight - 160 - 55, w: 30, h: 45 };
+        const pRect = { x: playerX + 15, y: window.innerHeight - 160 - 55, w: 35, h: 50 };
 
-      // 일반 장애물
-      for(let i = fallingObjects.length - 1; i >= 0; i--) {
-        const o = fallingObjects[i];
-        o.y += o.speed;
-        o.el.style.top = o.y + 'px';
+        // 보스 로직
+        if(isBossPhase && bossEntity) {
+            bossEntity.y += bossEntity.speed;
+            bossEntity.el.style.top = bossEntity.y + 'px';
+            
+            // 보스 공격
+            bossEntity.atkTimer++;
+            if(bossEntity.atkTimer > 35) {
+                const ax = bossEntity.x + bossEntity.size/2 - 12;
+                const ay = bossEntity.y + bossEntity.size - 10;
+                const atkEl = document.createElement('div');
+                atkEl.className = 'boss-attack';
+                atkEl.style.left = ax + 'px'; atkEl.style.top = ay + 'px';
+                container.appendChild(atkEl);
+                bossAttacks.push({ el: atkEl, x: ax, y: ay, speed: 8 });
+                bossEntity.atkTimer = 0;
+            }
 
-        if(o.isBoss) {
-          o.atkTimer++;
-          if(o.atkTimer > 40) { 
-            spawnAttack(o.x + o.size/2 - 12, o.y + o.size - 5);
-            o.atkTimer = 0;
-          }
+            // 보스 충돌 (플레이어의 머리가 보스 몸에 닿으면 공격 성공)
+            if(pRect.x < bossEntity.x + bossEntity.size - 20 && pRect.x + pRect.w > bossEntity.x + 20 && pRect.y < bossEntity.y + bossEntity.size - 20 && pRect.y + pRect.h > bossEntity.y + 20) {
+                bossEntity.hp--;
+                createExplosion(bossEntity.x + 40, bossEntity.y + 40);
+                bossEntity.y -= 40; // 타격 시 살짝 밀려남
+                bossHpDisp.textContent = `보스 HP: ${bossEntity.hp}`;
+                if(bossEntity.hp <= 0) {
+                    createExplosion(bossEntity.x, bossEntity.y);
+                    bossEntity.el.remove();
+                    bossEntity = null;
+                    isBossPhase = false;
+                    bossHpDisp.style.display = 'none';
+                    score += 10; // 보스 처치 보너스
+                    scoreDisp.textContent = '점수: ' + score;
+                }
+            }
+            if(bossEntity && bossEntity.y > window.innerHeight) endGame();
         }
 
-        if(pRect.x < o.x + o.size - 15 && pRect.x + pRect.w > o.x + 15 && pRect.y < o.y + o.size - 15 && pRect.y + pRect.h > o.y + 15) {
-          endGame(); return;
+        // 일반 장애물
+        for(let i = fallingObjects.length - 1; i >= 0; i--) {
+            const o = fallingObjects[i];
+            o.y += o.speed; o.el.style.top = o.y + 'px';
+            if(pRect.x < o.x + o.size - 15 && pRect.x + pRect.w > o.x + 15 && pRect.y < o.y + o.size - 15 && pRect.y + pRect.h > o.y + 15) {
+                endGame(); return;
+            }
+            if(o.y > window.innerHeight) {
+                o.el.remove(); fallingObjects.splice(i, 1);
+                score++;
+                scoreDisp.textContent = '점수: ' + score;
+                if(!isBossPhase && score > 0 && score % 50 === 0) spawnBoss();
+            }
         }
 
-        if(o.y > window.innerHeight) {
-          o.el.remove();
-          fallingObjects.splice(i, 1);
-          score++;
-          scoreDisp.textContent = '점수: ' + score;
-          difficulty += 0.02;
-        }
-      }
-
-      // 보스 아우라 공격 (즉사)
-      for(let j = bossAttacks.length - 1; j >= 0; j--) {
-        const a = bossAttacks[j];
-        a.y += a.speed;
-        a.el.style.top = a.y + 'px';
-
-        if(pRect.x < a.x + 25 && pRect.x + pRect.w > a.x && pRect.y < a.y + 25 && pRect.y + pRect.h > a.y) {
-          endGame(); return;
+        // 보스 탄환 (즉사)
+        for(let j = bossAttacks.length - 1; j >= 0; j--) {
+            const a = bossAttacks[j];
+            a.y += a.speed; a.el.style.top = a.y + 'px';
+            if(pRect.x < a.x + 22 && pRect.x + pRect.w > a.x && pRect.y < a.y + 22 && pRect.y + pRect.h > a.y) {
+                endGame(); return;
+            }
+            if(a.y > window.innerHeight) { a.el.remove(); bossAttacks.splice(j, 1); }
         }
 
-        if(a.y > window.innerHeight) {
-          a.el.remove();
-          bossAttacks.splice(j, 1);
-        }
-      }
-
-      animId = requestAnimationFrame(gameLoop);
+        animId = requestAnimationFrame(gameLoop);
     }
 
     function endGame() {
-      gameRunning = false;
-      cancelAnimationFrame(animId);
-      clearInterval(spawnTimer);
-      bgMusic.pause();
-      
-      // 최고 점수 저장
-      if(score > best) {
-        best = score;
-        localStorage.setItem('junseo_best_score', best);
-        document.getElementById('best-display').textContent = '최고: ' + best;
-      }
+        gameRunning = false;
+        cancelAnimationFrame(animId);
+        clearInterval(spawnTimer);
+        bgMusic.pause();
+        
+        let ranks = JSON.parse(localStorage.getItem('junseo_ranks') || "[]");
+        ranks.push(score);
+        localStorage.setItem('junseo_ranks', JSON.stringify(ranks));
+        updateRanking();
 
-      const fs = document.getElementById('final-score');
-      fs.textContent = '최종 점수: ' + score;
-      fs.style.display = 'block';
-      document.getElementById('sub-text').textContent = '다음엔 꼭 살아남으세요!';
-      overlay.style.display = 'flex';
+        document.getElementById('final-score').textContent = '최종 점수: ' + score;
+        document.getElementById('final-score').style.display = 'block';
+        overlay.style.display = 'flex';
     }
 
-    // 조이스틱 & 키보드 컨트롤
-    const handlePress = (key, state) => { keys[key] = state; };
-    const lBtn = document.getElementById('left-btn');
-    const rBtn = document.getElementById('right-btn');
-
-    document.addEventListener('keydown', e => keys[e.key] = true);
-    document.addEventListener('keyup', e => keys[e.key] = false);
-
-    lBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress('l', true); });
-    lBtn.addEventListener('touchend', () => handlePress('l', false));
-    rBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress('r', true); });
-    rBtn.addEventListener('touchend', () => handlePress('r', false));
-
-    lBtn.addEventListener('mousedown', () => handlePress('l', true));
-    lBtn.addEventListener('mouseup', () => handlePress('l', false));
-    rBtn.addEventListener('mousedown', () => handlePress('r', true));
-    rBtn.addEventListener('mouseup', () => handlePress('r', false));
+    // 컨트롤
+    const handle = (k, s) => { keys[k] = s; };
+    const l = document.getElementById('left-btn'), r = document.getElementById('right-btn');
+    l.ontouchstart = (e) => { e.preventDefault(); handle('l', true); };
+    l.ontouchend = () => handle('l', false);
+    r.ontouchstart = (e) => { e.preventDefault(); handle('r', true); };
+    r.ontouchend = () => handle('r', false);
+    l.onmousedown = () => handle('l', true);
+    l.onmouseup = () => handle('l', false);
+    r.onmousedown = () => handle('r', true);
+    r.onmouseup = () => handle('r', false);
   </script>
  </body>
 </html>
+
