@@ -2,31 +2,45 @@
 <html lang="ko" class="h-full">
  <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=none">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
   <style>
     html, body { margin:0; padding:0; height:100%; overflow:hidden; touch-action: none; background: #000; }
     #game-wrap { width:100%; height:100%; position:relative; overflow: hidden; background: linear-gradient(180deg, #0a0a2e 0%, #1a1a4e 100%); }
-    #player { position:absolute; bottom:140px; width:60px; height:60px; z-index:10; user-select:none; }
+    
+    /* 캐릭터 스타일 */
+    #player { position:absolute; bottom:160px; width:65px; height:65px; z-index:10; transition: transform 0.1s ease; }
     #player img { width: 100%; height: 100%; object-fit: contain; }
-    .falling-obj { position:absolute; z-index:5; border-radius: 8px; object-fit: cover; }
-    .boss-attack { position:absolute; width:25px; height:25px; border-radius:50%; background:radial-gradient(circle, #ff4444, #ff0000); z-index:6; box-shadow:0 0 15px rgba(255,0,0,.8); }
-    #hud { position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; z-index:20; font-family:'Black Han Sans',sans-serif; color:#fff; font-size:20px; }
-    #controls { position:absolute; bottom:0; left:0; width:100%; height:120px; background: #000; display:flex; justify-content:space-between; align-items:center; padding:0 30px; z-index:50; border-top: 2px solid #333; }
-    .btn-arrow { font-size: 50px; color: white; background: none; border: none; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
-    #overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; background:rgba(0,0,0,.8); backdrop-filter:blur(4px); }
-    .star { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; opacity:.5; animation: twinkle 2s infinite alternate; }
-    @keyframes twinkle { from{opacity:.2} to{opacity:1} }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    
+    /* 장애물 및 공격 */
+    .falling-obj { position:absolute; z-index:5; border-radius: 12px; object-fit: cover; }
+    .boss-attack { position:absolute; width:22px; height:22px; border-radius:50%; background:radial-gradient(circle, #ff4444, #ff0000); z-index:6; box-shadow:0 0 15px rgba(255,0,0,0.8); }
+    
+    /* UI 레이아웃 */
+    #hud { position:absolute; top:15px; left:15px; right:15px; display:flex; justify-content:space-between; z-index:20; font-family:'Black Han Sans',sans-serif; color:#fff; font-size:22px; pointer-events: none; }
+    
+    /* 조이스틱 (이미지 참고 디자인) */
+    #controls { position:absolute; bottom:0; left:0; width:100%; height:140px; background: #000; display:flex; justify-content:space-around; align-items:center; z-index:50; border-top: 3px solid #444; }
+    .btn-arrow { width: 45%; height: 80%; font-size: 60px; color: white; background: #1a1a1a; border: 1px solid #333; border-radius: 15px; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+    .btn-arrow:active { background: #333; transform: scale(0.95); }
+
+    /* 오버레이 */
+    #overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; background:rgba(0,0,0,0.85); backdrop-filter:blur(5px); }
+    #start-btn { font-family:'Black Han Sans',sans-serif; font-size:26px; padding:15px 50px; background:linear-gradient(135deg, #ff6b6b, #ee5a24); color:#fff; border-radius:15px; border:none; cursor:pointer; box-shadow:0 5px 15px rgba(238,90,36,0.4); }
+    
+    .star { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; opacity:0.5; animation: twinkle 2s infinite alternate; }
+    @keyframes twinkle { from{opacity:0.2} to{opacity:1} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 75%{transform:translateX(10px)} }
   </style>
  </head>
  <body>
   <div id="game-wrap">
    <div id="stars"></div>
+   
    <div id="hud">
-    <span id="score-display">점수: 0</span>
-    <span id="best-display">최고: 0</span>
+    <div id="score-display">점수: 0</div>
+    <div id="best-display" style="color: #ffdf00;">최고: 0</div>
    </div>
    
    <div id="player">
@@ -36,55 +50,52 @@
    <div id="falling-container"></div>
 
    <div id="controls">
-    <button class="btn-arrow" id="left-btn">《</button>
-    <button class="btn-arrow" id="right-btn">》</button>
+    <div class="btn-arrow" id="left-btn">《</div>
+    <div class="btn-arrow" id="right-btn">》</div>
    </div>
 
    <div id="overlay">
-    <h1 style="font-family:'Black Han Sans',sans-serif; font-size:42px; color:#ffdf00; margin-bottom:10px;">준서 피하기</h1>
-    <p id="final-score" style="color:#fff; font-size:24px; margin-bottom:20px; display:none;"></p>
-    <button id="start-btn" onclick="startGame()" style="font-family:'Black Han Sans',sans-serif; font-size:22px; padding:12px 40px; background:#ee5a24; color:#fff; border-radius:10px;">시작하기</button>
+    <h1 style="font-family:'Black Han Sans',sans-serif; font-size:50px; color:#ffdf00; margin-bottom:15px;">준서 피하기</h1>
+    <p id="sub-text" style="color:#ccc; margin-bottom:30px; font-size:18px;">보스의 공격을 피하고 살아남으세요!</p>
+    <p id="final-score" style="color:#fff; font-size:30px; margin-bottom:25px; display:none; font-family:'Black Han Sans';"></p>
+    <button id="start-btn" onclick="startGame()">게임 시작</button>
    </div>
   </div>
 
   <script>
-    // 별 배경 생성
     const starsEl = document.getElementById('stars');
-    for(let i=0; i<50; i++){
+    for(let i=0; i<60; i++){
       const s = document.createElement('div'); s.className = 'star';
       s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
       starsEl.appendChild(s);
     }
 
-    let gameRunning = false, score = 0, best = 0, playerX = 50, animId = null, spawnTimer = null;
+    let gameRunning = false, score = 0, best = 0, playerX = 50;
+    let animId = null, spawnTimer = null, difficulty = 1;
     let fallingObjects = [], bossAttacks = [], keys = {};
+
     const player = document.getElementById('player');
     const container = document.getElementById('falling-container');
     const overlay = document.getElementById('overlay');
     const scoreDisp = document.getElementById('score-display');
     const bestDisp = document.getElementById('best-display');
 
-    const PLAYER_W = 60, OBJ_SIZE = 70;
-    let difficulty = 1;
-
     function setPlayerPos() {
       const wrapW = document.getElementById('game-wrap').clientWidth;
-      playerX = Math.max(0, Math.min(playerX, wrapW - PLAYER_W));
+      playerX = Math.max(0, Math.min(playerX, wrapW - 65));
       player.style.left = playerX + 'px';
     }
 
     function startGame() {
-      score = 0; difficulty = 1; 
-      playerX = document.getElementById('game-wrap').clientWidth / 2 - 30;
+      score = 0; difficulty = 1;
+      playerX = document.getElementById('game-wrap').clientWidth / 2 - 32;
       setPlayerPos();
       
-      // 초기화
       container.innerHTML = '';
       fallingObjects = [];
       bossAttacks = [];
       scoreDisp.textContent = '점수: 0';
       overlay.style.display = 'none';
-      document.getElementById('final-score').style.display = 'none';
       
       gameRunning = true;
       if(spawnTimer) clearInterval(spawnTimer);
@@ -98,17 +109,22 @@
       const el = document.createElement('img');
       el.className = 'falling-obj';
       
-      // 10% 확률로 보스 등장 (크고 빠르며 공격함)
-      const isBoss = Math.random() < 0.15;
+      // 약 20% 확률로 보스(큰 이미지) 등장
+      const isBoss = Math.random() < 0.2;
       el.src = isBoss ? 'https://i.ibb.co/216LCs1z/Screenshot-. -Kakao-Talk.jpg' : 'https://i.ibb.co/23J5Sb4v/Screenshot-. -Discord.jpg';
-      const size = isBoss ? 110 : 75;
+      const size = isBoss ? 120 : 80;
       el.style.width = size + 'px'; el.style.height = size + 'px';
       
       const x = Math.random() * (wrapW - size);
-      el.style.left = x + 'px'; el.style.top = '-120px';
+      el.style.left = x + 'px'; el.style.top = '-130px';
       container.appendChild(el);
       
-      fallingObjects.push({ el, x, y: -120, size, speed: (3 + Math.random()*2) * (1 + difficulty*0.1), isBoss, attackCooldown: 0 });
+      fallingObjects.push({ 
+        el, x, y: -130, size, 
+        speed: (3.5 + Math.random()*2) * (1 + difficulty*0.08), 
+        isBoss, 
+        atkTimer: 0 
+      });
     }
 
     function spawnAttack(x, y) {
@@ -117,37 +133,37 @@
       atkEl.style.left = x + 'px';
       atkEl.style.top = y + 'px';
       container.appendChild(atkEl);
-      bossAttacks.push({ el: atkEl, x, y, speed: 6 });
+      bossAttacks.push({ el: atkEl, x, y, speed: 7 });
     }
 
     function gameLoop() {
       if(!gameRunning) return;
 
-      // 조이스틱 및 키보드 이동
-      const moveSpeed = 8;
-      if(keys['ArrowLeft'] || keys['leftBtn']) playerX -= moveSpeed;
-      if(keys['ArrowRight'] || keys['rightBtn']) playerX += moveSpeed;
+      const speed = 9;
+      if(keys['ArrowLeft'] || keys['l']) playerX -= speed;
+      if(keys['ArrowRight'] || keys['r']) playerX += speed;
       setPlayerPos();
 
-      const pBox = { x: playerX + 10, y: window.innerHeight - 140 - 50, w: PLAYER_W - 20, h: 50 };
+      // 히트박스 설정 (플레이어)
+      const pRect = { x: playerX + 15, y: window.innerHeight - 160 - 55, w: 35, h: 45 };
 
-      // 장애물 업데이트
+      // 장애물 처리
       for(let i = fallingObjects.length - 1; i >= 0; i--) {
         const o = fallingObjects[i];
         o.y += o.speed;
         o.el.style.top = o.y + 'px';
 
-        // 보스 공격 로직
+        // 보스 공격 생성
         if(o.isBoss) {
-          o.attackCooldown++;
-          if(o.attackCooldown > 40) {
-            spawnAttack(o.x + o.size/2, o.y + o.size);
-            o.attackCooldown = 0;
+          o.atkTimer++;
+          if(o.atkTimer > 45) { 
+            spawnAttack(o.x + o.size/2 - 11, o.y + o.size - 10);
+            o.atkTimer = 0;
           }
         }
 
-        // 충돌 검사 (장애물)
-        if(pBox.x < o.x + o.size - 10 && pBox.x + pBox.w > o.x + 10 && pBox.y < o.y + o.size - 10 && pBox.y + pBox.h > o.y + 10) {
+        // 장애물 충돌 검사
+        if(pRect.x < o.x + o.size - 15 && pRect.x + pRect.w > o.x + 15 && pRect.y < o.y + o.size - 15 && pRect.y + pRect.h > o.y + 15) {
           endGame(); return;
         }
 
@@ -156,18 +172,18 @@
           fallingObjects.splice(i, 1);
           score++;
           scoreDisp.textContent = '점수: ' + score;
-          difficulty += 0.05;
+          difficulty += 0.03;
         }
       }
 
-      // 보스 투사체 업데이트
+      // 보스 미사일 처리
       for(let j = bossAttacks.length - 1; j >= 0; j--) {
         const a = bossAttacks[j];
         a.y += a.speed;
         a.el.style.top = a.y + 'px';
 
-        // 충돌 검사 (보스 공격에 맞으면 즉시 사망)
-        if(pBox.x < a.x + 20 && pBox.x + pBox.w > a.x && pBox.y < a.y + 20 && pBox.y + pBox.h > a.y) {
+        // 미사일 충돌 검사 (맞으면 즉사)
+        if(pRect.x < a.x + 22 && pRect.x + pRect.w > a.x && pRect.y < a.y + 22 && pRect.y + pRect.h > a.y) {
           endGame(); return;
         }
 
@@ -191,33 +207,33 @@
       }
 
       player.style.animation = 'shake 0.4s';
-      setTimeout(() => player.style.animation = '', 400);
-
       const fs = document.getElementById('final-score');
       fs.textContent = '최종 점수: ' + score;
       fs.style.display = 'block';
-      document.getElementById('start-btn').textContent = '다시 시작';
+      document.getElementById('sub-text').textContent = '준서에게 당했습니다...';
       overlay.style.display = 'flex';
+      setTimeout(() => { player.style.animation = ''; }, 400);
     }
 
-    // 컨트롤 이벤트
+    // 입력 이벤트 (키보드 + 조이스틱)
     document.addEventListener('keydown', e => keys[e.key] = true);
     document.addEventListener('keyup', e => keys[e.key] = false);
 
     const lBtn = document.getElementById('left-btn');
     const rBtn = document.getElementById('right-btn');
     
-    lBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['leftBtn'] = true; });
-    lBtn.addEventListener('touchend', () => keys['leftBtn'] = false);
-    rBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['rightBtn'] = true; });
-    rBtn.addEventListener('touchend', () => keys['rightBtn'] = false);
-    
-    // PC 클릭 대응
-    lBtn.addEventListener('mousedown', () => keys['leftBtn'] = true);
-    lBtn.addEventListener('mouseup', () => keys['leftBtn'] = false);
-    rBtn.addEventListener('mousedown', () => keys['rightBtn'] = true);
-    rBtn.addEventListener('mouseup', () => keys['rightBtn'] = false);
+    const handlePress = (key, state) => { keys[key] = state; };
 
+    lBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress('l', true); });
+    lBtn.addEventListener('touchend', () => handlePress('l', false));
+    rBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress('r', true); });
+    rBtn.addEventListener('touchend', () => handlePress('r', false));
+
+    lBtn.addEventListener('mousedown', () => handlePress('l', true));
+    lBtn.addEventListener('mouseup', () => handlePress('l', false));
+    rBtn.addEventListener('mousedown', () => handlePress('r', true));
+    rBtn.addEventListener('mouseup', () => handlePress('r', false));
   </script>
  </body>
 </html>
+
