@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;700&amp;display=swap" rel="stylesheet">
+  <style>
+html, body { margin:0; padding:0; height:100%; overflow:hidden; }
+#game-wrap { width:100%; height:100%; position:relative; background: linear-gradient(180deg, #0a0a2e 0%, #1a1a4e 50%, #2a1a3e 100%); }
+#player { position:absolute; bottom:30px; width:60px; height:60px; transition: left 0.05s linear; z-index:10; user-select:none; }
+#player img { width: 100%; height: 100%; object-fit: contain; }
+.falling-obj { position:absolute; font-size:36px; line-height:1; z-index:5; user-select:none; pointer-events:none; }
+#hud { position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; z-index:20; font-family:'Black Han Sans',sans-serif; color:#fff; font-size:20px; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+#hud-right { display:flex; gap:15px; align-items:center; }
+#overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:30; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); }
+.star { position:absolute; width:2px; height:2px; background:#fff; border-radius:50%; opacity:.6; animation: twinkle 2s infinite alternate; }
+@keyframes twinkle { 0%{opacity:.3} 100%{opacity:1} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+#titles-panel { background:rgba(20,20,50,.95); border:2px solid #ffdf00; border-radius:12px; padding:20px; max-width:400px; }
+.title-item { background:rgba(30,30,60,.8); border:1px solid #ffdf00; border-radius:8px; padding:12px; margin:8px 0; color:#ffdf00; font-family:'Black Han Sans',sans-serif; }
+.title-item.locked { opacity:.5; color:#999; border-color:#999; }
+</style>
+ </head>
+ <body>
+  <div id="game-wrap">
+   <div id="stars"></div>
+   <audio id="bg-music" loop></audio>
+   <div id="hud">
+    <span id="score-display">점수: 0</span>
+    <div id="hud-right">
+     <span id="best-display">최고: 0</span>
+     <span id="current-title" style="color:#ffdf00; font-size:14px;"></span>
+     <button id="titles-btn" onclick="openTitles()" style="background:none; border:none; font-size:24px; cursor:pointer;">🏆</button>
+     <button id="sound-btn" onclick="toggleSound()" style="background:none; border:none; font-size:24px; cursor:pointer;">🔊</button>
+    </div>
+   </div>
+   <div id="player">
+    <img src="https://i.ibb.co/hxRSqYCV/25933-removebg-preview.png" alt="강아지">
+   </div>
+   <div id="falling-container"></div>
+   <div id="overlay">
+    <h1 id="game-title" style="font-family:'Black Han Sans',sans-serif; font-size:48px; color:#ffdf00; margin-bottom:8px; text-shadow:0 4px 16px rgba(255,200,0,.4);">준서 피하기</h1>
+    <p id="sub-msg" style="font-family:'Noto Sans KR',sans-serif; color:#ccc; font-size:16px; margin-bottom:24px;">떨어지는 준서를 피하세요!</p>
+    <button id="start-btn" onclick="startGame()" style="font-family:'Black Han Sans',sans-serif; font-size:22px; padding:14px 48px; border:none; border-radius:12px; background:linear-gradient(135deg,#ff6b6b,#ee5a24); color:#fff; cursor:pointer; box-shadow:0 4px 20px rgba(238,90,36,.5);">시작하기</button>
+    <p id="final-score" style="font-family:'Black Han Sans',sans-serif; color:#ffdf00; font-size:28px; margin-top:16px; display:none;"></p>
+    
+    <div id="titles-modal" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,.8); z-index:40; display:flex; align-items:center; justify-content:center; overflow-y:auto;">
+     <div id="titles-panel">
+      <h2 style="color:#ffdf00; margin-top:0; text-align:center;">획득 가능한 칭호 🏆</h2>
+      <div id="titles-items"></div>
+      <button onclick="closeTitles()" style="width:100%; padding:10px; background:#ff6b6b; color:#fff; border:none; border-radius:6px; font-family:'Black Han Sans',sans-serif; cursor:pointer; margin-top:10px;">닫기</button>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <script>
+const starsEl = document.getElementById('stars');
+for(let i=0;i<60;i++){
+  const s=document.createElement('div');s.className='star';
+  s.style.left=Math.random()*100+'%';s.style.top=Math.random()*100+'%';
+  s.style.animationDelay=Math.random()*2+'s';
+  starsEl.appendChild(s);
+}
+
+let gameRunning=false, score=0, best=0, playerX=50, animId=null, spawnTimer=null;
+let fallingObjects=[], difficulty=1, keys={};
+const player=document.getElementById('player');
+const container=document.getElementById('falling-container');
+const overlay=document.getElementById('overlay');
+const bgMusic=document.getElementById('bg-music');
+const MUSIC_URL='https://media.vocaroo.com/mp3/11IFKOGShZvj';
+const PLAYER_W=60, PLAYER_H=60, OBJ_SIZE=80;
+let musicEnabled=true;
+
+const TITLES=[
+  {id:'starter', name:'븅신', req:0, icon:'🌱'},
+  {id:'hundred', name:'딱좋은 이기', req:100, icon:'⚡'},
+  {id:'gladiator', name:'준서 할아버지', req:300, icon:'⚔️'},
+  {id:'legend', name:'준띠맘과 엄하신 아버지, req:500, icon:'👑'}
+];
+let equippedTitle='starter';
+
+function setPlayerPos(){
+  const wrap=document.getElementById('game-wrap');
+  const maxX=wrap.clientWidth-PLAYER_W;
+  playerX=Math.max(0,Math.min(playerX,maxX));
+  player.style.left=playerX+'px';
+}
+
+function startGame(){
+  score=0; difficulty=1; playerX=document.getElementById('game-wrap').clientWidth/2-30;
+  setPlayerPos();
+  fallingObjects.forEach(o=>o.el.remove()); fallingObjects=[];
+  document.getElementById('score-display').textContent='점수: 0';
+  overlay.style.display='none';
+  document.getElementById('final-score').style.display='none';
+  gameRunning=true;
+  if(musicEnabled){bgMusic.src=MUSIC_URL; bgMusic.play().catch(e=>console.error('Music play failed'));}
+  spawnTimer=setInterval(spawnObj, 800);
+  animId=requestAnimationFrame(gameLoop);
+}
+
+function spawnObj(){
+  if(!gameRunning) return;
+  const wrap=document.getElementById('game-wrap');
+  const el=document.createElement('img');
+  el.className='falling-obj';
+  el.src='https://i.ibb.co/23J5Sb4v/Screenshot-. -Discord.jpg';
+  el.style.width=OBJ_SIZE+'px'; el.style.height=OBJ_SIZE+'px';
+  el.style.objectFit='cover'; el.style.borderRadius='8px';
+  const x=Math.random()*(wrap.clientWidth-OBJ_SIZE);
+  el.style.left=x+'px'; el.style.top='-80px';
+  container.appendChild(el);
+  const speed = 3 + Math.random()*2 + difficulty*0.4;
+  fallingObjects.push({el, x, y:-80, speed});
+  
+  if(score > 0 && score % 15 === 0) {
+    difficulty = Math.min(15, difficulty + 0.5);
+    clearInterval(spawnTimer);
+    spawnTimer = setInterval(spawnObj, Math.max(250, 800 - (difficulty * 25)));
+  }
+}
+
+function gameLoop(){
+  if(!gameRunning) return;
+  const wrap=document.getElementById('game-wrap');
+  const moveSpeed = 7 + difficulty*0.3;
+  if(keys['ArrowLeft']||keys['a']) playerX-=moveSpeed;
+  if(keys['ArrowRight']||keys['d']) playerX+=moveSpeed;
+  setPlayerPos();
+
+  const pBox={x:playerX+10, y:wrap.clientHeight-30-PLAYER_H+10, w:PLAYER_W-20, h:PLAYER_H-20};
+
+  for(let i=fallingObjects.length-1;i>=0;i--){
+    const obj=fallingObjects[i];
+    obj.y+=obj.speed;
+    obj.el.style.top=obj.y+'px';
+    
+    if(obj.y>wrap.clientHeight){
+      obj.el.remove(); fallingObjects.splice(i,1); 
+      score++;
+      document.getElementById('score-display').textContent='점수: '+score;
+      updateAutoTitle();
+      continue;
+    }
+    const oBox={x:obj.x+10, y:obj.y+10, w:OBJ_SIZE-20, h:OBJ_SIZE-20};
+    if(pBox.x<oBox.x+oBox.w && pBox.x+pBox.w>oBox.x && pBox.y<oBox.y+oBox.h && pBox.y+pBox.h>oBox.y){
+      endGame(); return;
+    }
+  }
+  animId=requestAnimationFrame(gameLoop);
+}
+
+function updateAutoTitle() {
+  const newTitle = [...TITLES].reverse().find(t => score >= t.req);
+  if(newTitle && newTitle.id !== equippedTitle) {
+    equippedTitle = newTitle.id;
+    document.getElementById('current-title').textContent = newTitle.icon + ' ' + newTitle.name;
+  }
+}
+
+function endGame(){
+  gameRunning=false;
+  clearInterval(spawnTimer);
+  cancelAnimationFrame(animId);
+  bgMusic.pause();
+  if(score>best){ best=score; document.getElementById('best-display').textContent='최고: '+best; }
+  player.style.animation='shake .3s';
+  const fs=document.getElementById('final-score');
+  fs.textContent='최종 점수: '+score; fs.style.display='block';
+  document.getElementById('sub-msg').textContent='준서에게 잡혔습니다!';
+  document.getElementById('start-btn').textContent='다시 도전하기';
+  overlay.style.display='flex';
+}
+
+function openTitles(){
+  const modal=document.getElementById('titles-modal');
+  const items=document.getElementById('titles-items');
+  items.innerHTML='';
+  TITLES.forEach(title=>{
+    const div=document.createElement('div');
+    const isLocked = score < title.req;
+    div.className='title-item '+(isLocked?'locked':'');
+    div.innerHTML=`<span>${title.icon} ${title.name} (${title.req}점) ${isLocked?'🔒':'✅'}</span>`;
+    items.appendChild(div);
+  });
+  modal.style.display='flex';
+}
+
+function closeTitles(){ document.getElementById('titles-modal').style.display='none'; }
+
+function toggleSound(){
+  musicEnabled=!musicEnabled;
+  const btn=document.getElementById('sound-btn');
+  if(musicEnabled){
+    btn.textContent='🔊';
+    if(gameRunning){ bgMusic.play().catch(e=>console.error(e)); }
+  }else{
+    btn.textContent='🔇'; bgMusic.pause();
+  }
+}
+
+document.addEventListener('keydown',e=>{keys[e.key]=true;});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// Touch control
+let touchX=null;
+document.getElementById('game-wrap').addEventListener('touchstart',e=>{
+  if(gameRunning) touchX=e.touches[0].clientX;
+},{passive:true});
+document.getElementById('game-wrap').addEventListener('touchmove',e=>{
+  if(!gameRunning||touchX===null) return;
+  const dx=e.touches[0].clientX-touchX;
+  playerX+=dx;
+  touchX=e.touches[0].clientX;
+  setPlayerPos();
+},{passive:true});
+document.getElementById('game-wrap').addEventListener('touchend',()=>{touchX=null;},{passive:true});
+</script>
+ </body>
+</html>
